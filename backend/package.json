@@ -1,0 +1,19 @@
+{
+  "name": "dkitchen-backend",
+  "version": "1.0.0",
+  "description": "Custom production-ready Node.js Express Backend API for Stripe payments, chef/meal database synchronization, and local delivery streams.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "stripe": "^14.22.0"
+  },
+  "author": "DKitchen Team",
+  "license": "MIT"
+}

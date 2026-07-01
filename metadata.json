@@ -1,0 +1,6 @@
+{
+  "name": "D-KITCN",
+  "description": "Connecting food enthusiasts and home chefs with local buyers, featuring secure mock payments, dynamic map kitchen search, real-time tracking, Reviews, social dishes showcase, YouTube tutorials, and alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
