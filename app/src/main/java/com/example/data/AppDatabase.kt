@@ -17,6 +17,9 @@ import kotlinx.coroutines.launch
 
 @Dao
 interface HomeChefDao {
+    @Query("SELECT COUNT(*) FROM chefs")
+    suspend fun getChefCount(): Int
+
     @Query("SELECT * FROM chefs")
     fun getAllChefs(): Flow<List<ChefEntity>>
 
@@ -50,6 +53,9 @@ interface HomeChefDao {
     @Query("SELECT * FROM reviews WHERE chefId = :chefId ORDER BY timestamp DESC")
     fun getReviewsForChef(chefId: Int): Flow<List<ReviewEntity>>
 
+    @Query("SELECT * FROM reviews ORDER BY timestamp DESC")
+    fun getAllReviews(): Flow<List<ReviewEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReview(review: ReviewEntity): Long
 
@@ -61,6 +67,12 @@ interface HomeChefDao {
 
     @Query("UPDATE alerts SET isRead = 1")
     suspend fun markAllAlertsAsRead()
+
+    @Query("SELECT * FROM chat_messages WHERE chefId = :chefId ORDER BY timestamp ASC")
+    fun getChatMessagesForChef(chefId: Int): Flow<List<ChatMessageEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertChatMessage(message: ChatMessageEntity): Long
 }
 
 @Database(
@@ -69,9 +81,10 @@ interface HomeChefDao {
         MealEntity::class,
         OrderEntity::class,
         ReviewEntity::class,
-        AlertEntity::class
+        AlertEntity::class,
+        ChatMessageEntity::class
     ],
-    version = 4,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -104,6 +117,21 @@ abstract class AppDatabase : RoomDatabase() {
             INSTANCE?.let { database ->
                 CoroutineScope(Dispatchers.IO).launch {
                     populateInitialData(database.dao())
+                }
+            }
+        }
+
+        override fun onOpen(db: SupportSQLiteDatabase) {
+            super.onOpen(db)
+            INSTANCE?.let { database ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        if (database.dao().getChefCount() == 0) {
+                            populateInitialData(database.dao())
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         }
@@ -200,6 +228,42 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             ).toInt()
 
+            val chef6Id = dao.insertChef(
+                ChefEntity(
+                    id = 6,
+                    name = "Chef Kofi Mensah",
+                    rating = 4.88f,
+                    address = "Haight-Ashbury Ghanaian Hub - 1600 Haight St",
+                    cuisineType = "Authentic Ghanaian Cuisine",
+                    phone = "+1 (555) 724-8190",
+                    bio = "Kofi brings the authentic taste of Accra's famous street markets to your plate. Specializes in multi-layered smoky Waakye, perfectly spiced Ghanaian Jollof, and sweet ginger-infused Kelewele.",
+                    youtubeChannelUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk",
+                    youtubeChannelName = "Kofi's Accra Kitchen",
+                    avatarUrl = "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150",
+                    latitude = 37.7699,
+                    longitude = -122.4468,
+                    followersCount = 245
+                )
+            ).toInt()
+
+            val chef7Id = dao.insertChef(
+                ChefEntity(
+                    id = 7,
+                    name = "Chef Layla Haddad",
+                    rating = 4.92f,
+                    address = "Richmond Middle Eastern Eats - 320 Clement St",
+                    cuisineType = "Gourmet Arab & Middle Eastern",
+                    phone = "+1 (555) 492-7104",
+                    bio = "Layla has been sharing the warmth of Middle Eastern hospitality for over 15 years. Famous for her hand-marinated Shish Tawook, gourmet hummus, and authentic pistachio-loaded crispy Baklava.",
+                    youtubeChannelUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0",
+                    youtubeChannelName = "Layla's Levantine Table",
+                    avatarUrl = "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=150",
+                    latitude = 37.7829,
+                    longitude = -122.4612,
+                    followersCount = 375
+                )
+            ).toInt()
+
             // Pre-populate Meals
             dao.insertMeal(
                 MealEntity(
@@ -210,7 +274,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 16.50,
                     imageUrl = "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
             dao.insertMeal(
@@ -222,7 +287,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 18.00,
                     imageUrl = "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
             dao.insertMeal(
@@ -230,11 +296,12 @@ abstract class AppDatabase : RoomDatabase() {
                     id = 3,
                     chefId = chef1Id,
                     name = "Classic Italian Tiramisu",
-                    description = "Espresso-soaked savoiardi biscuits layered with fluffy raw egg-free sweet mascarpone whip and thoroughly dusted with fine dark cocoa powder.",
+                    description = "Espresso-soaked java biscuits layered with fluffy sweet mascarpone whip and dusted with dark cocoa powder.",
                     price = 8.50,
                     imageUrl = "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=300",
                     category = "Desserts",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
 
@@ -247,7 +314,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 17.50,
                     imageUrl = "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=P_mG69_PshQ"
                 )
             )
             dao.insertMeal(
@@ -259,7 +327,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 15.00,
                     imageUrl = "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=300",
                     category = "Starters",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=P_mG69_PshQ"
                 )
             )
 
@@ -272,7 +341,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 14.00,
                     imageUrl = "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=Q73uWbAArI0"
                 )
             )
             dao.insertMeal(
@@ -284,7 +354,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 7.50,
                     imageUrl = "https://images.unsplash.com/photo-1586788680438-ac4e8705305a?w=300",
                     category = "Desserts",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=Q73uWbAArI0"
                 )
             )
 
@@ -297,7 +368,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 16.00,
                     imageUrl = "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
                 )
             )
             dao.insertMeal(
@@ -309,7 +381,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 5.50,
                     imageUrl = "https://images.unsplash.com/photo-1601050690597-df056fb4ce78?w=300",
                     category = "Starters",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
                 )
             )
 
@@ -322,7 +395,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 18.50,
                     imageUrl = "https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
             dao.insertMeal(
@@ -334,7 +408,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 20.00,
                     imageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
             dao.insertMeal(
@@ -346,7 +421,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 12.00,
                     imageUrl = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300",
                     category = "Starters",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
             dao.insertMeal(
@@ -358,7 +434,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 19.00,
                     imageUrl = "https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
             dao.insertMeal(
@@ -370,7 +447,8 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 21.00,
                     imageUrl = "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=300",
                     category = "Mains",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
                 )
             )
             dao.insertMeal(
@@ -382,7 +460,347 @@ abstract class AppDatabase : RoomDatabase() {
                     price = 14.50,
                     imageUrl = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300",
                     category = "Starters",
-                    isAvailable = true
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 16,
+                    chefId = chef5Id,
+                    name = "Fiery Nigerian Ewa Agoyin & Bread",
+                    description = "Creamy, slow-cooked, buttery mashed honey beans topped with a legendary dark, rich, deeply caramelized palm oil palm-chili pepper sauce. Served with fresh, soft and fluffy Agege bread.",
+                    price = 13.50,
+                    imageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300",
+                    category = "Mains",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+
+            // Chef 1 (Italian) New Desserts and Drinks
+            dao.insertMeal(
+                MealEntity(
+                    id = 16,
+                    chefId = chef1Id,
+                    name = "Pistachio Panna Cotta",
+                    description = "Creamy, silky-smooth Madagascar vanilla bean panna cotta topped with freshly crushed roasted Sicilian green pistachios and a hint of mint.",
+                    price = 7.50,
+                    imageUrl = "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 17,
+                    chefId = chef1Id,
+                    name = "Non-Alcoholic Aperol Spritz",
+                    description = "A sophisticated, bubbly, and refreshing mocktail featuring bitter orange herbal notes, sparkling water, and finished with a fresh slice of orange.",
+                    price = 6.00,
+                    imageUrl = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 18,
+                    chefId = chef1Id,
+                    name = "San Pellegrino Blood Orange",
+                    description = "Premium chilled Italian sparkling fruit beverage made with juice from sun-ripened Mediterranean blood oranges.",
+                    price = 3.50,
+                    imageUrl = "https://images.unsplash.com/photo-1556881286-fc6915169721?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+
+            // Chef 2 (Japanese) New Desserts and Drinks
+            dao.insertMeal(
+                MealEntity(
+                    id = 19,
+                    chefId = chef2Id,
+                    name = "Matcha Mille Crepe Cake",
+                    description = "Twenty layers of paper-thin green tea crepes hand-stacked and spread with fresh premium Japanese matcha sweet whipped cream.",
+                    price = 8.50,
+                    imageUrl = "https://images.unsplash.com/photo-1536680465769-2365207b035e?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=P_mG69_PshQ"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 20,
+                    chefId = chef2Id,
+                    name = "Matcha Green Tea Latte",
+                    description = "Pure stone-ground organic Japanese matcha whisked with velvety steamed oat milk and sweetened with organic agave nectar.",
+                    price = 5.50,
+                    imageUrl = "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=P_mG69_PshQ"
+                )
+            )
+
+            // Chef 3 (Mexican) New Desserts and Drinks
+            dao.insertMeal(
+                MealEntity(
+                    id = 21,
+                    chefId = chef3Id,
+                    name = "Cinnamon Sugar Churros",
+                    description = "Golden-fried crispy pastry dough rods coated in aromatic cinnamon sugar, served warm with a side of authentic cajeta (goat milk caramel) dip.",
+                    price = 6.00,
+                    imageUrl = "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=Q73uWbAArI0"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 22,
+                    chefId = chef3Id,
+                    name = "Horchata de Arroz",
+                    description = "Traditional creamy Mexican beverage made of rice milk, ground almonds, sweet cinnamon, vanilla, and chilled over crushed ice.",
+                    price = 4.50,
+                    imageUrl = "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=Q73uWbAArI0"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 23,
+                    chefId = chef3Id,
+                    name = "Hibiscus Agua Fresca (Jamaica)",
+                    description = "Chilled, sweet-tart refreshing tea brewed from real organic dried hibiscus blossoms and served with a fresh lime wheel.",
+                    price = 4.00,
+                    imageUrl = "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=Q73uWbAArI0"
+                )
+            )
+
+            // Chef 4 (Indian) New Desserts and Drinks
+            dao.insertMeal(
+                MealEntity(
+                    id = 24,
+                    chefId = chef4Id,
+                    name = "Warm Gulab Jamun Sweet",
+                    description = "Golden fried paneer and milk-solid dumplings steeped in a warm, aromatic syrup of organic rosewater and green cardamom seeds.",
+                    price = 6.50,
+                    imageUrl = "https://images.unsplash.com/photo-1589135304601-cd298b3f1e68?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 25,
+                    chefId = chef4Id,
+                    name = "Creamy Mango Lassi",
+                    description = "Classic smooth yogurt drink blended with sweet ripe Alphonso mango pulp, a touch of milk, and a pinch of ground cardamom.",
+                    price = 5.00,
+                    imageUrl = "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 26,
+                    chefId = chef4Id,
+                    name = "Steaming Masala Chai",
+                    description = "Rich Assam black tea slow-brewed on the stove with crushed fresh ginger, green cardamom, cloves, cinnamon, and creamy whole milk.",
+                    price = 4.00,
+                    imageUrl = "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
+                )
+            )
+
+            // Chef 5 (Nigerian / West African) New Desserts and Drinks
+            dao.insertMeal(
+                MealEntity(
+                    id = 27,
+                    chefId = chef5Id,
+                    name = "Authentic Nigerian Puff Puff",
+                    description = "Golden-brown, deep-fried yeasted dough balls that are sweet, crispy on the outside, and pillowy soft inside. An iconic Nigerian party treat.",
+                    price = 6.00,
+                    imageUrl = "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 28,
+                    chefId = chef5Id,
+                    name = "Zobo Hibiscus Ginger Drink",
+                    description = "Traditional tangy crimson beverage brewed from dried hibiscus petals, crushed fresh ginger, sweet cloves, and organic pineapple juice.",
+                    price = 4.50,
+                    imageUrl = "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 38,
+                    chefId = chef5Id,
+                    name = "Savory Nigerian Moi Moi",
+                    description = "Delicious, rich, steamed bean pudding made from a blend of peeled black-eyed peas, red bell peppers, onions, ginger, and garlic, stuffed with boiled egg and fish flakes.",
+                    price = 8.50,
+                    imageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300",
+                    category = "Starters",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 39,
+                    chefId = chef5Id,
+                    name = "Crunchy Nigerian Chin Chin",
+                    description = "Crispy, sweet, bite-sized deep-fried snack made from wheat flour, sugar, butter, and a hint of warm, aromatic nutmeg.",
+                    price = 5.50,
+                    imageUrl = "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+
+            // Chef 6 (Ghanaian) Cuisine
+            dao.insertMeal(
+                MealEntity(
+                    id = 29,
+                    chefId = chef6Id,
+                    name = "Ghanaian Waakye Feast",
+                    description = "Nutritious local dish of rice and black-eyed beans cooked with sorghum leaves. Served with deep, spicy shito sauce, boiled egg, cassava gari, spaghetti, and fried sweet plantain.",
+                    price = 19.50,
+                    imageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300",
+                    category = "Mains",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 30,
+                    chefId = chef6Id,
+                    name = "Spicy Ghanaian Jollof Rice",
+                    description = "Vibrant, richly spiced long-grain rice slow-cooked in a robust seasoned tomato-pepper-onion stew, served with tender grilled chicken and sweet fried dodo.",
+                    price = 18.00,
+                    imageUrl = "https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=300",
+                    category = "Mains",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 31,
+                    chefId = chef6Id,
+                    name = "Kelewele (Spicy Fried Plantains)",
+                    description = "Ripe, sweet plantain cubes marinated in a fiery blend of ginger, garlic, cloves, and chili, then fried until caramelized and golden.",
+                    price = 7.50,
+                    imageUrl = "https://images.unsplash.com/photo-1564329760661-e71dc83f8f26?w=300",
+                    category = "Starters",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 32,
+                    chefId = chef6Id,
+                    name = "Buttery Ghana Meat Pie",
+                    description = "Flaky, rich pastry dough filled with perfectly seasoned minced lean beef, diced carrots, potatoes, and sweet white onions.",
+                    price = 6.50,
+                    imageUrl = "https://images.unsplash.com/photo-1608897013039-887f21d8c804?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 33,
+                    chefId = chef6Id,
+                    name = "Sobolo Hibiscus Spiced Drink",
+                    description = "Ghanaian cold-pressed hibiscus beverage infused with ginger, whole cloves, alligator pepper (grains of paradise), and sweetened with ripe pineapple essence.",
+                    price = 4.50,
+                    imageUrl = "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=FLeSREbZ7Rk"
+                )
+            )
+
+            // Chef 7 (Arab / Middle Eastern) Cuisine
+            dao.insertMeal(
+                MealEntity(
+                    id = 34,
+                    chefId = chef7Id,
+                    name = "Shish Tawook Chicken Plate",
+                    description = "Skewers of chicken breast marinated in yogurt, lemon juice, garlic, and wild Lebanese spices, char-grilled to juicy tenderness. Served with yellow rice, house garlic toum sauce, and warm pita.",
+                    price = 17.50,
+                    imageUrl = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300",
+                    category = "Mains",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 35,
+                    chefId = chef7Id,
+                    name = "Gourmet Hummus & Warm Pita",
+                    description = "Creamy puréed chickpeas with sesame tahini, fresh lemon juice, garlic, drizzled with premium organic cold-pressed olive oil and a dash of sumac. Served with fluffy clay-oven pita.",
+                    price = 8.00,
+                    imageUrl = "https://images.unsplash.com/photo-1577906096429-f73ae2789700?w=300",
+                    category = "Starters",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 36,
+                    chefId = chef7Id,
+                    name = "Crispy Pistachio Baklava Duo",
+                    description = "Paper-thin, layered golden phyllo pastry sheets loaded with chopped premium green pistachios, baked crisp and drizzled with sweet orange blossom honey syrup.",
+                    price = 7.50,
+                    imageUrl = "https://images.unsplash.com/photo-1519869325930-281384150729?w=300",
+                    category = "Desserts",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
+                )
+            )
+            dao.insertMeal(
+                MealEntity(
+                    id = 37,
+                    chefId = chef7Id,
+                    name = "Mint Lemonade (Limonana)",
+                    description = "Traditional blended frozen beverage crafted from freshly squeezed lemon juice, sweet simple sugar syrup, and fresh green spearmint leaves. Ultra refreshing.",
+                    price = 5.00,
+                    imageUrl = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300",
+                    category = "Drinks",
+                    isAvailable = true,
+                    tutorialVideoUrl = "https://www.youtube.com/watch?v=A2gR4K-tRE0"
                 )
             )
 
@@ -455,6 +873,26 @@ abstract class AppDatabase : RoomDatabase() {
                     reviewerName = "Nneka Okafor",
                     rating = 5,
                     comment = "The Egusi soup had the perfect texture and seasoning, and the pounded yam was so fresh and soft!"
+                )
+            )
+            dao.insertReview(
+                ReviewEntity(
+                    id = 8,
+                    chefId = chef6Id,
+                    mealId = 29,
+                    reviewerName = "Akua Boateng",
+                    rating = 5,
+                    comment = "The Waakye is absolutely flawless! The shito has that deep, smoky, authentic flavor I've been craving."
+                )
+            )
+            dao.insertReview(
+                ReviewEntity(
+                    id = 9,
+                    chefId = chef7Id,
+                    mealId = 34,
+                    reviewerName = "Yousef A.",
+                    rating = 5,
+                    comment = "Shish tawook is incredibly juicy and the garlic toum is exceptionally rich. A taste of home!"
                 )
             )
 

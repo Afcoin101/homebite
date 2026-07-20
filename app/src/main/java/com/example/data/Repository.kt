@@ -12,6 +12,7 @@ class HomeChefRepository(private val dao: HomeChefDao) {
     val chefs: Flow<List<ChefEntity>> = dao.getAllChefs()
     val meals: Flow<List<MealEntity>> = dao.getAllMeals()
     val orders: Flow<List<OrderEntity>> = dao.getAllOrders()
+    val reviews: Flow<List<ReviewEntity>> = dao.getAllReviews()
     val alerts: Flow<List<AlertEntity>> = dao.getAllAlerts()
 
     fun getChef(id: Int): Flow<ChefEntity?> = dao.getChefById(id)
@@ -27,7 +28,15 @@ class HomeChefRepository(private val dao: HomeChefDao) {
         return dao.insertMeal(meal).toInt()
     }
 
-    suspend fun addReview(review: ReviewEntity) {
+    suspend fun addReview(review: ReviewEntity, isLiveMode: Boolean = false, backendUrl: String = "") {
+        if (isLiveMode && backendUrl.isNotEmpty()) {
+            try {
+                val api = StripeClient.getApi(backendUrl)
+                api.submitReview(review)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
         dao.insertReview(review)
         
         // Also add local alert when a new review is added to build trust
@@ -45,6 +54,20 @@ class HomeChefRepository(private val dao: HomeChefDao) {
 
     suspend fun markAlertsAsRead() {
         dao.markAllAlertsAsRead()
+    }
+
+    fun getChatMessagesForChef(chefId: Int): Flow<List<ChatMessageEntity>> {
+        return dao.getChatMessagesForChef(chefId)
+    }
+
+    suspend fun sendChatMessage(chefId: Int, sender: String, text: String) {
+        dao.insertChatMessage(
+            ChatMessageEntity(
+                chefId = chefId,
+                sender = sender,
+                text = text
+            )
+        )
     }
 
     // Trigger secure payment simulation and start order tracking lifecycle
@@ -134,26 +157,36 @@ class HomeChefRepository(private val dao: HomeChefDao) {
         try {
             val chefsList = api.getChefs()
             val mealsList = api.getMeals()
+            val reviewsList = api.getReviews()
             for (chef in chefsList) {
                 dao.insertChef(chef)
             }
             for (meal in mealsList) {
                 dao.insertMeal(meal)
             }
+            for (review in reviewsList) {
+                dao.insertReview(review)
+            }
             dao.insertAlert(
                 AlertEntity(
                     title = "Database Sync Succeeded ✓",
-                    message = "Successfully synced ${chefsList.size} chefs and ${mealsList.size} meals from production backend API."
+                    message = "Successfully synced ${chefsList.size} chefs, ${mealsList.size} meals, and ${reviewsList.size} reviews from production backend API."
                 )
             )
         } catch (e: Exception) {
+            val errorMsg = e.message ?: ""
+            val friendlyMsg = if (errorMsg.contains("Use JsonReader.setLenient") || errorMsg.contains("malformed") || errorMsg.contains("Expected BEGIN_ARRAY") || errorMsg.contains("Expected BEGIN_OBJECT")) {
+                "The server returned an HTML error page or unexpected plain-text instead of valid JSON. This usually means the server is down or the backend URL is incorrect (currently: $backendUrl)."
+            } else {
+                e.localizedMessage ?: "Unknown network error"
+            }
             dao.insertAlert(
                 AlertEntity(
                     title = "Database Sync Failed ❌",
-                    message = "Failed to sync with backend URL: ${e.localizedMessage}. Verify server deployment."
+                    message = "Failed to sync: $friendlyMsg"
                 )
             )
-            throw e
+            throw Exception(friendlyMsg, e)
         }
     }
 }

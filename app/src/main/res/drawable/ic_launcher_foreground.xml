@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/home_bite_logo_1781906886553"
+        android:drawable="@drawable/img_citch_logo_1784428206441"
         android:gravity="center" />
 </layer-list>

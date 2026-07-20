@@ -12,31 +12,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = DarkSage,
-    secondary = DarkTerracotta,
-    tertiary = DarkClayTaupe,
-    background = DarkCreamBg,
-    surface = Color(0xFF2C2725),
-    onPrimary = Color.Black,
-    onSecondary = Color.Black,
-    onBackground = DarkSoftText,
-    onSurface = DarkSoftText,
-    surfaceVariant = DarkSandstone,
-    onSurfaceVariant = DarkSoftText
+    primary = NeonCoralPrimary,
+    secondary = NeonEmeraldSec,
+    tertiary = NeonAmberTert,
+    background = ObsidianBg,
+    surface = CharcoalSurface,
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onBackground = SoftIvoryText,
+    onSurface = SoftIvoryText,
+    surfaceVariant = DarkBorder,
+    onSurfaceVariant = MutedChocText
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = NaturalSage,
-    secondary = NaturalTerracotta,
-    tertiary = NaturalWoodChocolate,
-    background = NaturalCreamBg,
-    surface = NaturalIvoryWhite,
-    onPrimary = NaturalIvoryWhite,
-    onSecondary = NaturalIvoryWhite,
-    onBackground = NaturalDarkText,
-    onSurface = NaturalDarkText,
-    surfaceVariant = NaturalSandstone,
-    onSurfaceVariant = NaturalWoodChocolate
+    primary = VibrantPrimaryOrange,
+    secondary = VibrantSecondaryMint,
+    tertiary = VibrantTertiaryAmber,
+    background = AlabasterCleanBg,
+    surface = Color.White,
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onBackground = DeepCharcoalText,
+    onSurface = DeepCharcoalText,
+    surfaceVariant = WarmSandVariant,
+    onSurfaceVariant = CozyChocText
 )
 
 @Composable

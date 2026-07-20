@@ -29,7 +29,8 @@ data class MealEntity(
     val price: Double,
     val imageUrl: String,
     val category: String,
-    val isAvailable: Boolean = true
+    val isAvailable: Boolean = true,
+    val tutorialVideoUrl: String = ""
 )
 
 @Entity(tableName = "orders")
@@ -69,3 +70,13 @@ data class AlertEntity(
     val timestamp: Long = System.currentTimeMillis(),
     val isRead: Boolean = false
 )
+
+@Entity(tableName = "chat_messages")
+data class ChatMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val chefId: Int,
+    val sender: String, // "User" or "Chef"
+    val text: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+

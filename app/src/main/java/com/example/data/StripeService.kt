@@ -52,6 +52,16 @@ interface StripeBackendApi {
     @GET("meals")
     suspend fun getMeals(): List<MealEntity>
 
+    // Fetch reviews from custom backend
+    @GET("reviews")
+    suspend fun getReviews(): List<ReviewEntity>
+
+    // Submit review to custom backend
+    @POST("reviews")
+    suspend fun submitReview(
+        @Body review: ReviewEntity
+    ): ReviewEntity
+
     // Create a PaymentIntent via a Custom Backend Server (e.g. hosted Node.js / Spring Boot)
     @POST("payment-intents")
     suspend fun createPaymentIntent(
@@ -83,7 +93,7 @@ object StripeClient {
         val sanitizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         return Retrofit.Builder()
             .baseUrl(sanitizedUrl)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .addConverterFactory(MoshiConverterFactory.create(moshi).asLenient())
             .build()
             .create(StripeBackendApi::class.java)
     }

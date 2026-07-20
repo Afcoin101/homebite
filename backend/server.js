@@ -184,6 +184,73 @@ const meals = [
 // Active Orders repository (stored in memory for simulation)
 const orders = [];
 
+// Active Reviews repository (seeded with initial values to match Android AppDatabase)
+const reviews = [
+    {
+        id: 1,
+        chefId: 1,
+        mealId: 1,
+        reviewerName: "Samantha Miller",
+        rating: 5,
+        comment: "This lasagna is heavenly! Better than what I had in Rome last summer. Still piping hot when it arrived.",
+        timestamp: 1719842400000
+    },
+    {
+        id: 2,
+        chefId: 1,
+        mealId: 2,
+        reviewerName: "Jordan K.",
+        rating: 4,
+        comment: "Incredibly fragrant truffle pasta. Portion size was great, would highly recommend ordering.",
+        timestamp: 1719842400000
+    },
+    {
+        id: 3,
+        chefId: 2,
+        mealId: 4,
+        reviewerName: "William Mercer",
+        rating: 5,
+        comment: "The black garlic broth is purely out of this world. Spot-on authentic, Kenji is amazing!",
+        timestamp: 1719842400000
+    },
+    {
+        id: 4,
+        chefId: 3,
+        mealId: 6,
+        reviewerName: "Clara Gomez",
+        rating: 5,
+        comment: "The mole flavor complexity is extraordinary. Will absolute buy again next week.",
+        timestamp: 1719842400000
+    },
+    {
+        id: 5,
+        chefId: 4,
+        mealId: 8,
+        reviewerName: "Amir H.",
+        rating: 5,
+        comment: "Best butter chicken in the city! Fluffy garlic naan was out of this oven fresh!",
+        timestamp: 1719842400000
+    },
+    {
+        id: 6,
+        chefId: 5,
+        mealId: 10,
+        reviewerName: "Tunde Adelaja",
+        rating: 5,
+        comment: "Finally, authentic Jollof rice in the Bay Area! That smoky flavor is 100% spot-on Lagos party style.",
+        timestamp: 1719842400000
+    },
+    {
+        id: 7,
+        chefId: 5,
+        mealId: 11,
+        reviewerName: "Nneka Okafor",
+        rating: 5,
+        comment: "The Egusi soup had the perfect texture and seasoning, and the pounded yam was so fresh and soft!",
+        timestamp: 1719842400000
+    }
+];
+
 // Base Health Check endpoint
 app.get('/', (req, res) => {
     res.json({
@@ -208,6 +275,50 @@ app.get('/meals', (req, res) => {
 // GET /orders - Retrieve list of placed orders
 app.get('/orders', (req, res) => {
     res.json(orders);
+});
+
+// GET /reviews - Retrieve list of reviews
+app.get('/reviews', (req, res) => {
+    const chefId = req.query.chefId ? parseInt(req.query.chefId) : null;
+    if (chefId) {
+        const filtered = reviews.filter(r => r.chefId === chefId);
+        res.json(filtered);
+    } else {
+        res.json(reviews);
+    }
+});
+
+// POST /reviews - Create a new review
+app.post('/reviews', (req, res) => {
+    const { chefId, mealId, reviewerName, rating, comment, timestamp } = req.body;
+    
+    if (!chefId || !reviewerName || rating === undefined) {
+        return res.status(400).json({ error: "Missing required fields (chefId, reviewerName, and rating are required)." });
+    }
+    
+    const newReview = {
+        id: reviews.length + 1,
+        chefId: parseInt(chefId),
+        mealId: mealId ? parseInt(mealId) : 0,
+        reviewerName,
+        rating: parseInt(rating),
+        comment: comment || "",
+        timestamp: timestamp ? parseInt(timestamp) : Date.now()
+    };
+    
+    reviews.push(newReview);
+    console.log(`[API] Added review: ${JSON.stringify(newReview)}`);
+    
+    // Dynamically update chef's average rating in-memory on the backend
+    const chef = chefs.find(c => c.id === newReview.chefId);
+    if (chef) {
+        const chefReviews = reviews.filter(r => r.chefId === chef.id);
+        const sum = chefReviews.reduce((acc, r) => acc + r.rating, 0);
+        chef.rating = parseFloat((sum / chefReviews.length).toFixed(1));
+        console.log(`[API] Updated Chef ${chef.name} average rating to ${chef.rating}`);
+    }
+    
+    res.status(201).json(newReview);
 });
 
 // POST /payment-intents - Core Stripe PaymentIntent Creation Point
