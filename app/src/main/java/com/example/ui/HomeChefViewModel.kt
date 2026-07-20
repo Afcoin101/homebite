@@ -416,87 +416,15 @@ class HomeChefViewModel(application: Application) : AndroidViewModel(application
         cvv: String,
         description: String
     ): StripePaymentResult {
-        // Enforce validations matching standard card algorithms
-        val sanitizedCard = cardNum.replace(" ", "")
-        if (sanitizedCard.length < 15 || sanitizedCard.length > 16) {
-            return StripePaymentResult.Failure(
-                errorCode = "invalid_number",
-                errorMessage = "The credit card number is incorrect. Double-check your 15-16 digit layout."
-            )
-        }
-        
-        var cleanExpiry = expiry.replace(" ", "")
-        if (cleanExpiry.length == 4 && !cleanExpiry.contains("/")) {
-            cleanExpiry = cleanExpiry.take(2) + "/" + cleanExpiry.takeLast(2)
-        }
-        val expiryParts = cleanExpiry.split("/")
-        if (expiryParts.size != 2) {
-            return StripePaymentResult.Failure(
-                errorCode = "invalid_expiry_month",
-                errorMessage = "Card expiry must be in MM/YY format (e.g. 12/28 or 1228)."
-            )
-        }
-
-        if (cvv.length != 3 && cvv.length != 4) {
-            return StripePaymentResult.Failure(
-                errorCode = "invalid_cvc",
-                errorMessage = "The CVV security code is invalid."
-            )
-        }
-
-        if (_isLiveMode.value) {
-            // Live Production Route - Contacting custom middleware to secure dynamic Stripe Session Token keys
-            return try {
-                val cents = (amount * 100).toLong()
-                val api = StripeClient.getApi(_liveBackendUrl.value)
-                val response = api.createPaymentIntent(
-                    request = StripeIntentRequest(
-                        amount = cents,
-                        description = description
-                    )
-                )
-
-                if (response.client_secret != null) {
-                    StripePaymentResult.Success(
-                        transactionId = response.id ?: "ch_live_${System.currentTimeMillis()}",
-                        last4 = sanitizedCard.takeLast(4)
-                    )
-                } else {
-                    StripePaymentResult.Failure(
-                        errorCode = "payment_intent_failed",
-                        errorMessage = response.error ?: "Missing Stripe client secret parameter from middleware."
-                    )
-                }
-            } catch (e: Exception) {
-                // Return descriptive error with guidance on pointing to active middleware servers
-                StripePaymentResult.Failure(
-                    errorCode = "endpoint_unreachable",
-                    errorMessage = "Could not contact your Live Backend endpoint at ${_liveBackendUrl.value}. Details: ${e.localizedMessage}. Verify server deployment state in AWS/GCP and point to the correct address or keep Live Mode toggled off to simulate checkout."
-                )
-            }
-        } else {
-            // High-fidelity local Stripe simulation mode
-            // Allow the user to test live keys or standard Stripe sample cards (e.g., 4242 4242 4242 4242)
-            kotlinx.coroutines.delay(2000) // Realistic secure SSL latency representation
-            
-            return if (sanitizedCard == "4242424242424242" || sanitizedCard.startsWith("4")) {
-                StripePaymentResult.Success(
-                    transactionId = "ch_test_${System.currentTimeMillis()}",
-                    last4 = sanitizedCard.takeLast(4)
-                )
-            } else if (sanitizedCard == "4000000000000002" || sanitizedCard.endsWith("02")) {
-                StripePaymentResult.Failure(
-                    errorCode = "card_declined",
-                    errorMessage = "This card was declined by your issuing bank. Use a valid Stripe sandbox identifier."
-                )
-            } else {
-                // General success for testing any other valid format
-                StripePaymentResult.Success(
-                    transactionId = "ch_mock_${System.currentTimeMillis()}",
-                    last4 = sanitizedCard.takeLast(4)
-                )
-            }
-        }
+        return PaymentIntegrationService.processPayment(
+            amount = amount,
+            cardNum = cardNum,
+            expiry = expiry,
+            cvv = cvv,
+            description = description,
+            isLiveMode = _isLiveMode.value,
+            liveBackendUrl = _liveBackendUrl.value
+        )
     }
 
     // --- AI CULINARY HUB STATE & API TRIGGERS ---
